@@ -10,6 +10,8 @@ app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL','sqlite:///lively_marketplace.db')
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY','dev-secret')
 db = SQLAlchemy(app)
+with app.app_context():
+    db.create_all()
 logger = logging.getLogger('lively')
 logger.addHandler(logging.StreamHandler())
 
