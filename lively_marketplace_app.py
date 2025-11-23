@@ -11,7 +11,11 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL','sqlite://
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY','dev-secret')
 db = SQLAlchemy(app)
 with app.app_context():
-    db.create_all()
+    try:
+        db.create_all()
+        print("🔥 Database tables ensured")
+    except Exception as e:
+        print("❌ Table creation error:", e)
 logger = logging.getLogger('lively')
 logger.addHandler(logging.StreamHandler())
 
