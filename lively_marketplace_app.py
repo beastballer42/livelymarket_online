@@ -123,12 +123,12 @@ def debt_buy(debt_id):
     flash('bought'); return redirect(url_for('debt_view', debt_id=debt_id))
 
 if __name__ == '__main__':
-  # -------- Database Auto-Init on Startup -------- #
-@app.before_first_request
-def initialize_database():
-    try:
-        db.create_all()
-        print("🔥 Tables verified/created successfully")
-    except Exception as e:
-        print("❌ DB Init Error:", e)
+      # -------- Database Auto-Init on Startup -------- #
+    @app.before_first_request
+    def initialize_database():
+        try:
+            db.create_all()
+            print("🔥 Tables verified/created successfully")
+        except Exception as e:
+            print("❌ DB Init Error:", e)
 
