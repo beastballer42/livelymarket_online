@@ -9,32 +9,32 @@ app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "devkey")
 
 # =========================================================
-# DATABASE CONFIGURATION (RENDER POSTGRES SAFE)
+# DATABASE CONFIGURATION
 # =========================================================
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-# Render provides `postgres://` but SQLAlchemy requires `postgresql://`
 if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
 if not DATABASE_URL:
-    raise RuntimeError("DATABASE_URL is missing — add it in Render > Environment")
+    raise RuntimeError("DATABASE_URL missing — add it in Render > Environment")
+
+print("📌 Using database:", DATABASE_URL)
 
 app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URL
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
-
-logger = logging.getLogger('lively')
+logger = logging.getLogger("lively")
 logger.addHandler(logging.StreamHandler())
 
 # =========================================================
-# ONE-TIME DATABASE BOOTSTRAP (RUN MANUALLY FIRST TIME)
+# ONE-TIME DATABASE BOOTSTRAP
 # =========================================================
 @app.route("/init-db")
 def init_db():
     db.create_all()
-    return "Database initialized successfully!"
+    return "Database initialized!"
 
 
 # =========================================================
@@ -59,22 +59,22 @@ class DebtListing(db.Model):
     title = db.Column(db.String(200), nullable=False)
     principal_cents = db.Column(db.Integer, nullable=False)
     interest_rate_percent = db.Column(db.Float, nullable=False)
-    seller_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    seller_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     target_amount_cents = db.Column(db.Integer, default=0)
     total_invested_cents = db.Column(db.Integer, default=0)
     current_rate_percent = db.Column(db.Float, default=0.0)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    seller = db.relationship('User', backref='debt_listings')
+    seller = db.relationship("User", backref="debt_listings")
 
 
 class DebtPosition(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    owner_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    debt_id = db.Column(db.Integer, db.ForeignKey('debt_listing.id'), nullable=False)
+    owner_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    debt_id = db.Column(db.Integer, db.ForeignKey("debt_listing.id"), nullable=False)
     principal_cents = db.Column(db.Integer, nullable=False)
     active = db.Column(db.Boolean, default=True)
-    owner = db.relationship('User')
-    debt = db.relationship('DebtListing')
+    owner = db.relationship("User")
+    debt = db.relationship("DebtListing")
 
 
 # =========================================================
@@ -86,101 +86,92 @@ def format_cents(c):
 
 @app.before_request
 def load_user():
-    g.user = None
-    if 'user_id' in session:
-        g.user = User.query.get(session['user_id'])
+    g.user = User.query.get(session["user_id"]) if "user_id" in session else None
 
 
 # =========================================================
 # ROUTES
 # =========================================================
-@app.route('/')
+@app.route("/")
 def index():
     debts = DebtListing.query.order_by(DebtListing.created_at.desc()).limit(6).all()
     return render_template_string(
-        '<h1>Welcome</h1><ul>{% for d in debts %}<li><a href="/debt/{{d.id}}">{{d.title}} - {{format_cents(d.principal_cents)}}</a></li>{% endfor %}</ul>',
-        debts=debts, format_cents=format_cents)
+        "<h1>Welcome</h1><ul>"
+        "{% for d in debts %}"
+        "<li><a href='/debt/{{d.id}}'>{{d.title}} - {{format_cents(d.principal_cents)}}</a></li>"
+        "{% endfor %}</ul>",
+        debts=debts, format_cents=format_cents
+    )
 
 
-@app.route('/register', methods=['GET','POST'])
+@app.route("/register", methods=["GET","POST"])
 def register():
-    if request.method == 'POST':
-        u = request.form.get('username','').strip()
-        p = request.form.get('password','')
-        if not u or not p: flash('bad'); return redirect(url_for('register'))
-        if User.query.filter_by(username=u).first(): flash('exists'); return redirect(url_for('register'))
-        usr = User(username=u); usr.set_password(p); db.session.add(usr); db.session.commit()
-        session['user_id'] = usr.id; return redirect(url_for('index'))
-    return render_template_string('<form method=post>Username:<input name=username> Password:<input name=password type=password><button>Register</button></form>')
+    if request.method == "POST":
+        u = request.form.get("username","").strip()
+        p = request.form.get("password","")
+        if not u or not p: flash("bad"); return redirect(url_for("register"))
+        if User.query.filter_by(username=u).first(): flash("exists"); return redirect(url_for("register"))
+        usr = User(username=u); usr.set_password(p)
+        db.session.add(usr); db.session.commit()
+        session["user_id"] = usr.id
+        return redirect(url_for("index"))
+    return render_template_string("<form method=post>Username:<input name=username> Password:<input type=password name=password><button>Register</button></form>")
 
 
-@app.route('/login', methods=['GET','POST'])
+@app.route("/login", methods=["GET","POST"])
 def login():
-    if request.method == 'POST':
-        u = request.form.get('username',''); p = request.form.get('password','')
+    if request.method == "POST":
+        u = request.form.get("username",""); p = request.form.get("password","")
         usr = User.query.filter_by(username=u).first()
-        if not usr or not usr.check_password(p): flash('invalid'); return redirect(url_for('login'))
-        session['user_id'] = usr.id; return redirect(url_for('index'))
-    return render_template_string('<form method=post>Username:<input name=username> Password:<input name=password type=password><button>Login</button></form>')
+        if not usr or not usr.check_password(p): flash("invalid"); return redirect(url_for("login"))
+        session["user_id"] = usr.id
+        return redirect(url_for("index"))
+    return render_template_string("<form method=post>Username:<input name=username> Password:<input type=password name=password><button>Login</button></form>")
 
 
-@app.route('/debt/new', methods=['GET','POST'])
+@app.route("/debt/new", methods=["GET","POST"])
 def debt_new():
-    if not g.user: return redirect(url_for('login'))
-    if request.method=='POST':
-        title = request.form.get('title','')
-        principal = Decimal(request.form.get('principal','0'))
-        rate = float(request.form.get('rate','0.1'))
-        d = DebtListing(title=title, principal_cents=int(principal*100),
-                        interest_rate_percent=rate, seller_id=g.user.id)
+    if not g.user: return redirect(url_for("login"))
+    if request.method == "POST":
+        title = request.form.get("title","")
+        principal = Decimal(request.form.get("principal","0"))
+        rate = float(request.form.get("rate","0.1"))
+        d = DebtListing(
+            title=title,
+            principal_cents=int(principal * 100),
+            interest_rate_percent=rate,
+            seller_id=g.user.id,
+        )
         d.current_rate_percent = rate
-        d.target_amount_cents = int(request.form.get('target', principal*100))
-        db.session.add(d); db.session.commit(); return redirect(url_for('index'))
-    return render_template_string('<form method=post>Title:<input name=title>Principal:<input name=principal>Rate (0.12):<input name=rate>Target(optional):<input name=target><button>List</button></form>')
+        d.target_amount_cents = int(request.form.get("target", principal * 100))
+        db.session.add(d); db.session.commit()
+        return redirect(url_for("index"))
+    return render_template_string("<form method=post>Title:<input name=title>Principal:<input name=principal>Rate:<input name=rate>Target(optional):<input name=target><button>List</button></form>")
 
 
-@app.route('/debt/<int:debt_id>')
+@app.route("/debt/<int:debt_id>")
 def debt_view(debt_id):
     d = DebtListing.query.get_or_404(debt_id)
     return render_template_string(
-        '<h2>{{d.title}}</h2><p>Principal: {{format_cents(d.principal_cents)}}</p>'
-        '<p>Rate: {{"%.2f" % (d.current_rate_percent*100)}}%</p>'
-        '<form method=post action="/debt/{}/buy">Amount:<input name=amount><button>Buy</button></form>'.format(debt_id),
-        d=d, format_cents=format_cents)
+        "<h2>{{d.title}}</h2>"
+        "<p>Principal: {{format_cents(d.principal_cents)}}</p>"
+        "<p>Rate: {{ '%.2f' % (d.current_rate_percent * 100) }}%</p>"
+        "<form method=post action='/debt/{}/buy'>Amount:<input name=amount><button>Buy</button></form>".format(debt_id),
+        d=d, format_cents=format_cents
+    )
 
 
-@app.route('/debt/<int:debt_id>/buy', methods=['POST'])
+@app.route("/debt/<int:debt_id>/buy", methods=["POST"])
 def debt_buy(debt_id):
-    if not g.user: return redirect(url_for('login'))
+    if not g.user: return redirect(url_for("login"))
     d = DebtListing.query.get_or_404(debt_id)
-    amt = Decimal(request.form.get('amount','0'))
-    cents = int(amt*100)
+    amt = Decimal(request.form.get("amount","0"))
+    cents = int(amt * 100)
     if g.user.balance_cents < cents:
-        flash('insufficient'); return redirect(url_for('debt_view', debt_id=debt_id))
+        flash("insufficient"); return redirect(url_for("debt_view", debt_id=debt_id))
     g.user.debit(cents)
     pos = DebtPosition(owner_id=g.user.id, debt_id=d.id, principal_cents=cents)
     db.session.add(pos)
     d.total_invested_cents = (d.total_invested_cents or 0) + cents
-
-    target = d.target_amount_cents or 1
-    ratio = d.total_invested_cents/target
-    if ratio < 0.01: d.current_rate_percent = min(0.95, d.current_rate_percent + 0.20)
-    elif ratio < 0.05: d.current_rate_percent = min(0.95, d.current_rate_percent + 0.12)
-    elif ratio < 0.2: d.current_rate_percent = min(0.95, d.current_rate_percent + 0.06)
-    elif ratio < 0.5: d.current_rate_percent = max(0.001, d.current_rate_percent + 0.02)
-    elif ratio < 1.0: d.current_rate_percent = max(0.001, d.current_rate_percent - 0.03)
-    elif ratio < 1.5: d.current_rate_percent = max(0.001, d.current_rate_percent - 0.12)
-    else: d.current_rate_percent = max(0.0001, d.current_rate_percent - 0.30)
-
     db.session.commit()
-    flash('bought'); return redirect(url_for('debt_view', debt_id=debt_id))
-if __name__ == '__main__':
-    @app.before_first_request
-    def initialize_database():
-        try:
-            db.create_all()
-            print("🔥 Tables verified/created successfully")
-        except Exception as e:
-            print("❌ DB Init Error:", e)
-
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    flash("bought"); return redirect(url_for("debt_view", debt_id=debt_id))
