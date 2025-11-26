@@ -1,6 +1,6 @@
 flask
 flask_sqlalchemy
 werkzeug
-flask-wtf
 stripe
 gunicorn
+flask-wtf
