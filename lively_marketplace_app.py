@@ -6,12 +6,30 @@ from decimal import Decimal
 from datetime import datetime
 import os, threading, time, logging
 
+# =========================================================
+# DATABASE CONFIGURATION (RENDER POSTGRES SAFE)
+# =========================================================
 DATABASE_URL = os.getenv("DATABASE_URL")
+
+# Render provides `postgres://` but SQLAlchemy requires `postgresql://`
 if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL is missing — add it in Render > Environment")
+
 app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URL
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
+db = SQLAlchemy(app)
+
+# =========================================================
+# ONE-TIME DATABASE BOOTSTRAP (RUNS WHEN /init-db IS OPENED)
+# =========================================================
+@app.route("/init-db")
+def init_db():
+    db.create_all()
+    return "Database initialized successfully!"
 
 with app.app_context():
     try:
