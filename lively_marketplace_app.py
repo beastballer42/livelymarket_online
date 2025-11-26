@@ -135,4 +135,14 @@ if __name__ == '__main__':
             print("🔥 Tables verified/created successfully")
         except Exception as e:
             print("❌ DB Init Error:", e)
+    @app.before_first_request
+def activate_db():
+    from lively_marketplace_app import Product, DebtListing, Investment, User
+    db.create_all()
+@app.route("/init-db")
+def init_db():
+    from lively_marketplace_app import Product, DebtListing, Investment, User
+    db.create_all()
+    return "Database initialized"
+
 
