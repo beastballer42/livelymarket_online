@@ -174,3 +174,13 @@ def debt_buy(debt_id):
 
     db.session.commit()
     flash('bought'); return redirect(url_for('debt_view', debt_id=debt_id))
+if __name__ == '__main__':
+    @app.before_first_request
+    def initialize_database():
+        try:
+            db.create_all()
+            print("🔥 Tables verified/created successfully")
+        except Exception as e:
+            print("❌ DB Init Error:", e)
+
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
