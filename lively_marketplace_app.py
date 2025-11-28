@@ -211,22 +211,55 @@ BASE_HTML = """
 # Routes — Home
 # -----------------------
 @app.route("/")
+
 def index():
-    products = Product.query.order_by(Product.created_at.desc()).limit(6).all()
-    debts = DebtListing.query.order_by(DebtListing.created_at.desc()).limit(6).all()
+    products = Product.query.limit(9).all()
+    debts = DebtProject.query.limit(9).all()
+
+    content = """
+    <h2 class="mb-4">Trending Products</h2>
+    <div class="row">
+      {% for p in products %}
+        <div class="col-4 mb-4">
+          <div class="card">
+            <img src="{{ p.image_url }}" class="card-img">
+            <div class="card-body">
+              <h5 class="card-title">{{ p.name }}</h5>
+              <p>{{ p.description[:80] }}...</p>
+              <p><b>{{ format_cents(p.price_cents) }}</b></p>
+              <a href="/product/{{ p.id }}" class="btn btn-primary btn-sm">View</a>
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+
+    <hr class="my-4">
+
+    <h2 class="mb-4">Debt Market Opportunities</h2>
+    <div class="row">
+      {% for d in debts %}
+        <div class="col-4 mb-4">
+          <div class="card">
+            <div class="card-body">
+              <h5>{{ d.title }}</h5>
+              <p class="small-muted">{{ d.description[:100] }}...</p>
+              <p><b>Interest: {{ d.current_interest_rate }}%</b></p>
+              <a href="/debt/{{ d.id }}" class="btn btn-success btn-sm">Invest</a>
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+    """
+
     return render_template_string(
-        "{% extends base %}{% block body %}"
-        "<div class='row'><div class='col-md-6'><h3>Products</h3>"
-        "{% for p in products %}"
-        "<div class='card mb-2'><div class='row g-0'><div class='col-4'><img src='{{ p.image_url or \"https://via.placeholder.com/300x150\" }}' class='img-fluid card-img'></div><div class='col-8'><div class='card-body'><h5 class='card-title'>{{p.title}}</h5><p class='card-text small-muted'>{{p.description[:120]}}</p><p class='card-text'><strong>{{ format_cents(p.price_cents) }}</strong></p><a class='btn btn-sm btn-primary' href='/product/{{p.id}}'>View</a></div></div></div></div>"
-        "{% endfor %}</div>"
-        "<div class='col-md-6'><h3>Debts</h3>"
-        "{% for d in debts %}"
-        "<div class='mb-2'><a href='/debt/{{d.id}}'>{{d.title}}</a> — {{ format_cents(d.principal_cents) }} ({{ '%.2f' % (d.current_rate_percent*100) }}%)</div>"
-        "{% endfor %}</div></div>"
-        "{% endblock %}",
-        base=BASE_HTML, products=products, debts=debts, format_cents=format_cents
+        BASE_HTML.replace("{% block body %}{% endblock %}", content),
+        products=products,
+        debts=debts,
+        format_cents=format_cents
     )
+
 
 # -----------------------
 # Auth
