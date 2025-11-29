@@ -1,6 +1,5 @@
 flask
 flask_sqlalchemy
-stripe
-gunicorn
 werkzeug
+
 
